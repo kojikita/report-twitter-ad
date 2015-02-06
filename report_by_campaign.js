@@ -3,6 +3,8 @@ var casper = require('casper').create({
     logLevel: 'debug',
 });
 
+var segment = 'interests';
+
 var startDate = createDate( new Date(2015, 1-1, 1) );
 var endDate   = createDate( new Date() );
 casper.echo('startDate = ' + decodeURIComponent(startDate));
@@ -55,7 +57,7 @@ function loop() {
 }
 
 function exportData() {
-    var exportUrl = 'https://ads.twitter.com/accounts/18ce53x85lg/segments/export_data.json?campaign=' + campaignList[count].id + '&endString='+ endDate + '&lang=ja&startString=' + startDate + '&segment=interests&summary_metric=impressions&cursor=&format=csv&granularity=day';
+    var exportUrl = 'https://ads.twitter.com/accounts/18ce53x85lg/segments/export_data.json?campaign=' + campaignList[count].id + '&endString='+ endDate + '&lang=ja&startString=' + startDate + '&segment=' + segment + '&summary_metric=impressions&cursor=&format=csv&granularity=day';
     this.echo(exportUrl);
     casper.thenOpen(exportUrl, confirmData);
 }
@@ -73,7 +75,7 @@ function confirmData() {
 }
 
 function getCsv() {
-    var fileUrl = 'https://ads.twitter.com/accounts/18ce53x85lg/segments/bundle?campaign=' + campaignList[count].id + '&endString='+ endDate + '&lang=ja&startString=' + startDate + '&segment=interests&summary_metric=impressions&cursor=&format=csv&granularity=day';
+    var fileUrl = 'https://ads.twitter.com/accounts/18ce53x85lg/segments/bundle?campaign=' + campaignList[count].id + '&endString='+ endDate + '&lang=ja&startString=' + startDate + '&segment=' + segment + '&summary_metric=impressions&cursor=&format=csv&granularity=day';
     this.echo(fileUrl);
     this.download(fileUrl, 'data/' + campaignList[count].name + '.csv');
 }
