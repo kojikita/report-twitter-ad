@@ -3,10 +3,16 @@ var casper = require('casper').create({
     logLevel: 'debug',
 });
 
-var segment = 'interests';
+var segment = 'tweets';
+//var segment = 'ostypes';
+//var segment = 'places';
+//var segment = 'genders';
+//var segment = 'interests';
+//var segment = 'handles';
+//var segment = 'keywords';
 
-var startDate = createDate( new Date(2015, 1-1, 1) );
-var endDate   = createDate( new Date() );
+var startDate = createDate( new Date(2015, 2-1, 1) );
+var endDate   = createDate( new Date(2015, 2-1, 15+1) );
 casper.echo('startDate = ' + decodeURIComponent(startDate));
 casper.echo('endDate   = ' + decodeURIComponent(endDate));
 
@@ -24,21 +30,32 @@ casper.then(function() {
 casper.wait(1000);
 
 var campaignList = new Array();
-var defaultUrl = 'https://ads.twitter.com/accounts/18ce53x85lg/campaigns_dashboard/data.json?endString=' + endDate + '&fi=31659202&lang=ja&startString=' + startDate + '&summary_metric=impressions&search_initiated=false';
+var defaultJsonUrl = 'https://ads.twitter.com/accounts/18ce53x85lg/campaigns_dashboard/data.json?endString=' + endDate + '&fi=31659202&lang=ja&startString=' + startDate + '&summary_metric=impressions&search_initiated=false';
+var currentJsonUrl = defaultJsonUrl;
 
-casper.thenOpen(defaultUrl, makeCampaignList);
+casper.then(makeCampaignList);
 
 function makeCampaignList() {
-    var result = this.evaluate(getCampaigns);
-    var next = result.next;
-    campaignList = campaignList.concat(result.campaigns);
+    var jsonData;
 
-    this.echo('campaignCounter : ' + campaignList.length);
+    this.download(currentJsonUrl, 'data.json');
+    this.then(function () {
+        var fs = require('fs');
+        jsonData = fs.read('data.json');
+    });
 
-    if (next) {
-        var url = defaultUrl + '&cursor=' + next;
-        casper.thenOpen(url, makeCampaignList);
-    }
+    this.then(function () {
+        var result = this.evaluate(getCampaigns, jsonData);
+        var next = result.next;
+        campaignList = campaignList.concat(result.campaigns);
+
+        this.echo('campaignCounter : ' + campaignList.length);
+
+        if (next) {
+            currentJsonUrl = defaultJsonUrl + '&cursor=' + next;
+            casper.then(makeCampaignList);
+        }
+    });
 }
 
 var count = -1;
@@ -56,22 +73,29 @@ function loop() {
     casper.then(loop);
 }
 
+var exportUrl;
 function exportData() {
-    var exportUrl = 'https://ads.twitter.com/accounts/18ce53x85lg/segments/export_data.json?campaign=' + campaignList[count].id + '&endString='+ endDate + '&lang=ja&startString=' + startDate + '&segment=' + segment + '&summary_metric=impressions&cursor=&format=csv&granularity=day';
+    exportUrl = 'https://ads.twitter.com/accounts/18ce53x85lg/segments/export_data.json?campaign=' + campaignList[count].id + '&endString='+ endDate + '&lang=ja&startString=' + startDate + '&segment=' + segment + '&summary_metric=impressions&cursor=&format=csv&granularity=day';
     this.echo(exportUrl);
-    casper.thenOpen(exportUrl, confirmData);
+    casper.then(confirmData);
 }
 
 function confirmData() {
-    var json = this.evaluate(function() {
-        var innerText = document.querySelector('body').innerText;
-        var json = JSON.parse(innerText);
-        return json;
+    var jsonData;
+
+    this.download(exportUrl, 'export_data.json');
+    this.then(function () {
+        var fs = require('fs');
+        jsonData = fs.read('export_data.json');
     });
-    this.echo(json.status);
-    if (json.status !== 'Available') {
-        casper.thenOpen(this.getCurrentUrl(), confirmData);
-    }
+
+    this.then(function (){
+        var json = JSON.parse(jsonData);
+        this.echo(json.status);
+        if (json.status !== 'Available') {
+            casper.then(confirmData);
+        }
+    });
 }
 
 function getCsv() {
@@ -107,9 +131,8 @@ function createDate(date) {
     return encodeURIComponent(dateString);
 }
 
-function getCampaigns() {
-    var innerText = document.querySelector('body').innerText;
-    var json = JSON.parse(innerText);
+function getCampaigns(jsonData) {
+    var json = JSON.parse(jsonData);
     document.body.innerHTML = json.rows_html;
     var campaignNames = document.querySelectorAll('.campaign-name');
     var campaigns = new Array();
